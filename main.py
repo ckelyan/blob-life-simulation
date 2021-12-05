@@ -4,13 +4,41 @@ import os
 import yaml
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
+import inspect
+import sys
+
+try:
+    import vispy.plot as vp  # type: ignore
+    import vispy.scene as sc # type: ignore
+    avplotlib = "vis"
+except ImportError:
+    print("Could not import vispy. Trying matplotlib...")
+finally:
+    import matplotlib.pyplot as plt
+    avplotlib += "mpl"
 
 parser = argparse.ArgumentParser(description="Simulate blob lives")
-parser.add_argument("-s", "--set", help="Name of the parameter set")
-parser.add_argument("-c", "--cmap", help="Colormap for the final plot", default="GnBu")
+parser.add_argument(
+    "-s", "--set", help="Name of the parameter set")
+parser.add_argument(
+    "-c", "--cmap", help="Colormap for the final plot", default="GnBu")
+parser.add_argument(
+    "-l", "--lib", help="Plotting library used (VisPy requires configuration, not recommended for non experimented users)", choices=["vis", "mpl"])
 
 args = vars(parser.parse_args())
+
+if args["lib"] == "vis":
+    if not args["lib"] in avplotlib:
+        raise ImportError("Selected plotting library isn't available.")
+    else:
+        del plt
+    avplotlib = "vis"
+else:
+    try:
+        del vp
+    except:
+        pass
+    avplotlib = "mpl"
 
 with open("parameters.yml", "r") as f:
     params = yaml.load(f, yaml.FullLoader)[0]
@@ -193,11 +221,12 @@ class Sim:
             rows, cols = zip(*self.foodpos)
             self.grid[rows, cols] = foodval
 
-    def plotgrid(self):
+    def get_stats(self):
         total_energy = 0
         for i, blob in enumerate(self.blobs):
             total_energy += blob.energy
         total_energy /= len(self.blobs)
+        sorted_by_energy = sorted(self.blobs, key=lambda x: x.energy)
         
         stats = {
             "nblobs": len(self.blobs),
@@ -206,22 +235,28 @@ class Sim:
             "nbirths": self.births,
             "ndeaths": self.deaths,
             "nfood": len(self.foodpos),
-            "avgen": int(total_energy)
+            "avgen": int(total_energy),
+            "hiloen": (sorted_by_energy[0].energy, sorted_by_energy[-1].energy)
         }
-        
+        return stats
+
+    def plotgrid_mpl(self):
+        stats = self.get_stats()
+
         plt.figure(figsize=(10, 10))
         plt.imshow(self.grid, interpolation="none", cmap=args["cmap"])
         plt.xticks([])
         plt.yticks([])
         plt.title(f"Simluation day {self.day}")
         plt.gcf().text(0.02, 0.5,
-f"Statistics\n\nBlobs: {stats['nblobs']}\n\n\
+                       f"Statistics\n\nBlobs: {stats['nblobs']}\n\n\
 Males: {stats['nmales']}\n\n\
 Females: {stats['nfemales']}\n\n\
 Births: {stats['nbirths']}\n\n\
 Deaths: {stats['ndeaths']}\n\n\
 Food: {stats['nfood']}\n\n\
-Average energy: ~{stats['avgen']}", 
+Average energy: ~{stats['avgen']}\n\n\
+Lo/hi energy: {stats['hiloen'][0]} / {stats['hiloen'][1]}",
                        fontsize=14)
         # for i, blob in enumerate(self.blobs):
         #    plt.text(blob.y,blob.x,f"{blob.energy}", color="grey", fontsize=6)
@@ -229,10 +264,27 @@ Average energy: ~{stats['avgen']}",
         plt.subplots_adjust(left=0.3)
         plt.show()
 
+    def plotgrid_vis(self):
+        canvas = sc.SceneCanvas(keys='interactive')
+        canvas.size = 800, 600
+        
+        view = canvas.central_widget.add_view()
+        im = sc.visuals.Image(self.grid, parent=view.scene)
+        view.camera.set_range()
+        im_data_new = self.grid
+        im.set_data(im_data_new)
+        canvas.show()
+        
+        stats = self.get_stats()
+        input(".")
+
     def nextframe(self):
         self.updatevalues()
         self.applygrid(3, 2, 1)
-        self.plotgrid()
+        if avplotlib == "mpl":
+            self.plotgrid_mpl()
+        else:
+            self.plotgrid_vis()
         self.day += 1
 
 
