@@ -7,6 +7,8 @@ import numpy as np
 import inspect
 import sys
 
+avplotlib = ""
+
 try:
     import vispy.plot as vp  # type: ignore
     import vispy.scene as sc # type: ignore
@@ -25,7 +27,7 @@ parser.add_argument(
 parser.add_argument(
     "-l", "--lib", help="Plotting library used (VisPy requires configuration, not recommended for non experimented users)", choices=["vis", "mpl"])
 
-args = vars(parser.parse_args())
+args = vars(parser.parse_args(sys.argv[1:]))
 
 if args["lib"] == "vis":
     if not args["lib"] in avplotlib:
@@ -36,6 +38,7 @@ if args["lib"] == "vis":
 else:
     try:
         del vp
+        del sc
     except:
         pass
     avplotlib = "mpl"
@@ -140,6 +143,8 @@ class Sim:
         self.foodpos = list(map(lambda x: [
                             x // self.size, x % self.size], np.random.randint(0, self.size**2, self.nfood)))
 
+        self.full_stats = []
+
     def updatevalues(self):
         self.births = 0
         self.deaths = 0
@@ -238,30 +243,53 @@ class Sim:
             "avgen": int(total_energy),
             "hiloen": (sorted_by_energy[0].energy, sorted_by_energy[-1].energy)
         }
+        
+        self.full_stats.append(stats)
+        
         return stats
 
     def plotgrid_mpl(self):
         stats = self.get_stats()
 
-        plt.figure(figsize=(10, 10))
+        plt.subplots(2, 3, figsize=(20, 10))
+        plt.subplot(121)
         plt.imshow(self.grid, interpolation="none", cmap=args["cmap"])
         plt.xticks([])
         plt.yticks([])
         plt.title(f"Simluation day {self.day}")
-        plt.gcf().text(0.02, 0.5,
-                       f"Statistics\n\nBlobs: {stats['nblobs']}\n\n\
-Males: {stats['nmales']}\n\n\
-Females: {stats['nfemales']}\n\n\
-Births: {stats['nbirths']}\n\n\
-Deaths: {stats['ndeaths']}\n\n\
-Food: {stats['nfood']}\n\n\
-Average energy: ~{stats['avgen']}\n\n\
-Lo/hi energy: {stats['hiloen'][0]} / {stats['hiloen'][1]}",
-                       fontsize=14)
+#         plt.gcf().text(0.02, 0.5,
+#                        f"Statistics\n\nBlobs: {stats['nblobs']}\n\n\
+# Males: {stats['nmales']}\n\n\
+# Females: {stats['nfemales']}\n\n\
+# Births: {stats['nbirths']}\n\n\
+# Deaths: {stats['ndeaths']}\n\n\
+# Food: {stats['nfood']}\n\n\
+# Average energy: ~{stats['avgen']}\n\n\
+# Lo/hi energy: {stats['hiloen'][0]} / {stats['hiloen'][1]}",
+#                        fontsize=14)
+        
+        plt.subplot(222)
+        plt.plot(list(i["nblobs"] for i in self.full_stats))
+        plt.plot(list(i["nmales"] for i in self.full_stats), "r")
+        plt.plot(list(i["nfemales"] for i in self.full_stats), "b")
+        plt.title("Blobs")
+        
+        plt.subplot(224)
+        plt.plot(list(i["nfood"] for i in self.full_stats))
+        plt.title("Food")
+        
+        plt.subplot(235)
+        plt.plot(list(i["nfood"] for i in self.full_stats))
+        plt.title("Food")
+        
+        plt.subplot(236)
+        plt.plot(list(i["nfood"] for i in self.full_stats))
+        plt.title("Food")
+        
         # for i, blob in enumerate(self.blobs):
         #    plt.text(blob.y,blob.x,f"{blob.energy}", color="grey", fontsize=6)
         # plt.savefig(f"day_{self.day:03d}.png")
-        plt.subplots_adjust(left=0.3)
+        # plt.subplots_adjust(left=0.3)
         plt.show()
 
     def plotgrid_vis(self):
