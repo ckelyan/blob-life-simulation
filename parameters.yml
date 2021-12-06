@@ -19,7 +19,7 @@
 #     death_energy_factor: float              # Percentage of energy a weaker blob gives to the winner of a battle
 #     n_days: int                             # Total number of days
 ---
-- highweak:
+highweak:
     grid_size: 100
     blobs_density: 0.005
     mf_ratio: 0.5
@@ -37,8 +37,7 @@
     food_regeneration: 0.05
     death_energy_factor: 0.5
     n_days: 10000
-
-- lowstrong:
+lowstrong:
     grid_size: 100
     blobs_density: 0.05
     mf_ratio: 0.5

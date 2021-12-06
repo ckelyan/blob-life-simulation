@@ -9,50 +9,43 @@ import sys
 
 avplotlib = ""
 
-try:
-    import vispy.plot as vp  # type: ignore
-    import vispy.scene as sc # type: ignore
-    avplotlib = "vis"
-except ImportError:
-    print("Could not import vispy. Trying matplotlib...")
-finally:
-    import matplotlib.pyplot as plt
-    avplotlib += "mpl"
+with open("parameters.yml", "r") as f:
+    params = yaml.load(f, yaml.FullLoader)
+
+print(params)
 
 parser = argparse.ArgumentParser(description="Simulate blob lives")
 parser.add_argument(
-    "-s", "--set", help="Name of the parameter set")
+    "-s", "--set", help="Name of the parameter set", choices=params.keys())
 parser.add_argument(
     "-c", "--cmap", help="Colormap for the final plot", default="GnBu")
 parser.add_argument(
-    "-l", "--lib", help="Plotting library used (VisPy requires configuration, not recommended for non experimented users)", choices=["vis", "mpl"])
+    "-l", "--lib", help="Plotting library used (VisPy requires configuration, \
+        not recommended for non experimented users)", choices=["vis", "mpl"])
 
 args = vars(parser.parse_args(sys.argv[1:]))
 
-if args["lib"] == "vis":
-    if not args["lib"] in avplotlib:
-        raise ImportError("Selected plotting library isn't available.")
-    else:
-        del plt
-    avplotlib = "vis"
-else:
-    try:
-        del vp
-        del sc
-    except:
-        pass
-    avplotlib = "mpl"
-
-with open("parameters.yml", "r") as f:
-    params = yaml.load(f, yaml.FullLoader)[0]
-
-    if args["set"] in params.keys():
-        params = params[args["set"]]
-
-    else:
-        raise KeyError(args['set'])
-
 sexdict = {0: "f", 1: "m"}
+
+if args["set"] in params.keys():
+    params = params[args["set"]]
+
+else:
+    raise KeyError(args['set'])
+
+if args["lib"] == "vis":
+    try:
+        import vispy.plot as vp  # type: ignore
+        import vispy.scene as sc # type: ignore
+        avplotlib = "vis"
+    except ImportError:
+        print("Could not import vispy. Trying matplotlib...")
+        import matplotlib.pyplot as plt
+        avplotlib = "mpl"
+        
+elif args["lib"] == "mpl":
+    import matplotlib.pyplot as plt
+    avplotlib = "mpl"
 
 
 class Blob:
@@ -251,8 +244,8 @@ class Sim:
     def plotgrid_mpl(self):
         stats = self.get_stats()
 
-        plt.subplots(2, 3, figsize=(20, 10))
-        plt.subplot(121)
+        f = plt.figure(contrained_layout=True, figsize=(20, 10))
+        gs = f.add_gridspec(2, 3)
         plt.imshow(self.grid, interpolation="none", cmap=args["cmap"])
         plt.xticks([])
         plt.yticks([])
@@ -279,10 +272,10 @@ class Sim:
         plt.title("Food")
         
         plt.subplot(235)
-        plt.plot(list(i["nfood"] for i in self.full_stats))
+        plt.plot(list(i["avgen"] for i in self.full_stats))
         plt.title("Food")
         
-        plt.subplot(236)
+        plt.subplot(237)
         plt.plot(list(i["nfood"] for i in self.full_stats))
         plt.title("Food")
         
@@ -291,6 +284,7 @@ class Sim:
         # plt.savefig(f"day_{self.day:03d}.png")
         # plt.subplots_adjust(left=0.3)
         plt.show()
+        plt.clf()
 
     def plotgrid_vis(self):
         canvas = sc.SceneCanvas(keys='interactive')
